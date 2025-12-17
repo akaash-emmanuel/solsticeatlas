@@ -102,9 +102,9 @@ export const createSpaceSkybox = (scene) => {
   // Create a very large sphere to serve as the skybox
   const skyboxGeometry = new SphereGeometry(UNIVERSE_RADIUS * 0.98, 64, 64);
   
-  // Create a material with a dark space color, applied to the inside of the sphere
+  // Create a material with a pure black space color, applied to the inside of the sphere
   const skyboxMaterial = new MeshBasicMaterial({
-    color: 0x000510, // Very dark blue, almost black
+    color: 0x000000, // Pure black (was dark blue 0x000510)
     side: BackSide, // Apply to the inside of the sphere
     transparent: true,
     opacity: 0.8 // Slight transparency to blend with stars

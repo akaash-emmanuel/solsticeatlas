@@ -176,7 +176,7 @@ const createLROLabel = () => {
   return sprite;
 };
 
-// Update LRO position to orbit around Moon
+// Update LRO position to orbit around Moon using real data when available
 export const updateLROPosition = (lro, moon, deltaTime) => {
   if (!lro || !moon) return;
   
@@ -187,29 +187,61 @@ export const updateLROPosition = (lro, moon, deltaTime) => {
   // Get Moon's radius for calculations
   const moonRadius = moon.geometry.parameters.radius;
   
-  // Update orbital angle
-  lro.userData.orbitalAngle += (deltaTime || 0.016) * (Math.PI * 2) / LRO_ORBITAL_PERIOD;
-  
-  // Calculate new position with inclination for a polar orbit
-  const angle = lro.userData.orbitalAngle;
-  const orbitRadius = moonRadius + (moonRadius * LRO_ORBITAL_HEIGHT);
-  const x = Math.cos(angle) * orbitRadius;
-  const y = Math.sin(angle) * orbitRadius * Math.sin(LRO_ORBITAL_INCLINATION);
-  const z = Math.sin(angle) * orbitRadius * Math.cos(LRO_ORBITAL_INCLINATION);
-  
-  // Create a new Quaternion object to store moon's rotation
-  const moonQuaternion = new Quaternion();
-  moon.getWorldQuaternion(moonQuaternion);
-  
-  // Apply moon's world quaternion to LRO's position
-  const lroVector = new Vector3(x, y, z).applyQuaternion(moonQuaternion);
-  
-  // Update position relative to Moon
-  lro.position.set(
-    moonPosition.x + lroVector.x,
-    moonPosition.y + lroVector.y,
-    moonPosition.z + lroVector.z
-  );
+  // Check if we have real position data from NASA API
+  if (lro.userData.realPositionData) {
+    // Use the real position data from NASA
+    const { x, y, z } = lro.userData.realPositionData;
+    
+    // Scale the position to match our visualization
+    // NASA data is in km, we need to scale it to match our scene scale
+    const scaleFactorKm = moonRadius / MOON_RADIUS_KM;
+    
+    // Create a vector for the scaled position relative to Moon
+    const lroVector = new Vector3(
+      x * scaleFactorKm,
+      y * scaleFactorKm,
+      z * scaleFactorKm
+    );
+    
+    // Create a new Quaternion object to store moon's rotation
+    const moonQuaternion = new Quaternion();
+    moon.getWorldQuaternion(moonQuaternion);
+    
+    // Apply moon's world quaternion to LRO's position
+    lroVector.applyQuaternion(moonQuaternion);
+    
+    // Update position relative to Moon
+    lro.position.set(
+      moonPosition.x + lroVector.x,
+      moonPosition.y + lroVector.y,
+      moonPosition.z + lroVector.z
+    );
+  } else {
+    // Fall back to simulated orbit if no real data is available
+    // Update orbital angle
+    lro.userData.orbitalAngle += (deltaTime || 0.016) * (Math.PI * 2) / LRO_ORBITAL_PERIOD;
+    
+    // Calculate new position with inclination for a polar orbit
+    const angle = lro.userData.orbitalAngle;
+    const orbitRadius = moonRadius + (moonRadius * LRO_ORBITAL_HEIGHT);
+    const x = Math.cos(angle) * orbitRadius;
+    const y = Math.sin(angle) * orbitRadius * Math.sin(LRO_ORBITAL_INCLINATION);
+    const z = Math.sin(angle) * orbitRadius * Math.cos(LRO_ORBITAL_INCLINATION);
+    
+    // Create a new Quaternion object to store moon's rotation
+    const moonQuaternion = new Quaternion();
+    moon.getWorldQuaternion(moonQuaternion);
+    
+    // Apply moon's world quaternion to LRO's position
+    const lroVector = new Vector3(x, y, z).applyQuaternion(moonQuaternion);
+    
+    // Update position relative to Moon
+    lro.position.set(
+      moonPosition.x + lroVector.x,
+      moonPosition.y + lroVector.y,
+      moonPosition.z + lroVector.z
+    );
+  }
   
   // Make LRO face Moon (look towards the Moon)
   lro.lookAt(moonPosition);
@@ -248,22 +280,99 @@ export const toggleLROVisibility = (lro, isVisible) => {
   return false;
 };
 
-// Fetch real-time LRO data from NASA Horizons API (simulation for now)
+// Fetch real-time LRO data from NASA Horizons API
 export const fetchLROData = async () => {
   try {
-    // For demonstration, this would fetch real data from NASA Horizons API
-    // but is simulated here to avoid external API dependencies
+    // Construct the NASA JPL Horizons API request for the LRO
+    // LRO's SPK ID is -85 in the JPL Horizons system
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    // Format dates for the API request
+    const formatDate = (date) => {
+      return date.toISOString().split('T')[0];
+    };
+    
+    // NASA Horizons API request for LRO data
+    const apiUrl = `https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND='-85'&EPHEM_TYPE=VECTORS&CENTER='301'&START_TIME='${formatDate(today)}'&STOP_TIME='${formatDate(tomorrow)}'&STEP_SIZE='1 h'&VEC_TABLE='2'&CSV_FORMAT='YES'&OBJ_DATA='YES'&REF_SYSTEM='J2000'&VEC_LABELS='YES'&VEC_DELTA_T='NO'&OUT_UNITS='KM-S'&TIME_TYPE='UTC'&API_KEY='${NASA_API_KEY}'`;
+    
+    // Fetch the data
+    const response = await axios.get(apiUrl);
+    
+    // Process the raw data to extract LRO position information
+    const rawData = response.data.result;
+    
+    // Parse the CSV data from the response
+    // The response contains a CSV table between $$SOE and $$EOE markers
+    const soeIndex = rawData.indexOf('$$SOE');
+    const eoeIndex = rawData.indexOf('$$EOE');
+    
+    if (soeIndex === -1 || eoeIndex === -1) {
+      throw new Error("Could not find data markers in NASA Horizons API response");
+    }
+    
+    const dataSection = rawData.substring(soeIndex + 6, eoeIndex).trim();
+    const lines = dataSection.split('\n');
+    
+    // Get the most recent data point (last line)
+    const currentData = lines[0]; // Use the first data point
+    const values = currentData.split(',').map(val => val.trim());
+    
+    // Extract relevant information
+    // Format will depend on the exact API response structure
+    // Assuming the vector table format with position and velocity components
+    const x = parseFloat(values[2]); // km
+    const y = parseFloat(values[3]); // km
+    const z = parseFloat(values[4]); // km
+    const vx = parseFloat(values[5]); // km/s
+    const vy = parseFloat(values[6]); // km/s
+    const vz = parseFloat(values[7]); // km/s
+    
+    // Calculate distance from Moon's center (altitude = distance - Moon's radius)
+    const distance = Math.sqrt(x*x + y*y + z*z);
+    const altitude = (distance - MOON_RADIUS_KM).toFixed(1);
+    
+    // Calculate velocity magnitude
+    const velocity = Math.sqrt(vx*vx + vy*vy + vz*vz).toFixed(2);
+    
+    // Calculate latitude and longitude from cartesian coordinates
+    const lat = (Math.asin(z / distance) * (180 / Math.PI)).toFixed(2);
+    const lon = (Math.atan2(y, x) * (180 / Math.PI)).toFixed(2);
+    
+    // Calculate mission elapsed time
+    const launchDate = new Date('2009-06-18');
+    const elapsedMs = today - launchDate;
+    const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+    const elapsedHours = Math.floor((elapsedMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const elapsedMinutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+    const mission_elapsed_time = `${elapsedDays} days, ${elapsedHours} hours, ${elapsedMinutes} minutes`;
+    
+    // Estimate orbit number (LRO orbits the Moon about once every ~2 hours)
+    const hoursInOrbit = elapsedMs / (1000 * 60 * 60);
+    const orbit_number = Math.floor(hoursInOrbit / 2);
+    
     return {
-      altitude: (LRO_PERILUNE + Math.random() * (LRO_APOLUNE - LRO_PERILUNE)).toFixed(1), // Random altitude between perilune and apolune
-      velocity: (1.6 + Math.random() * 0.2).toFixed(2), // ~1.6 km/s with small variation
-      latitude: (Math.random() * 180 - 90).toFixed(2), // Random latitude
-      longitude: (Math.random() * 360 - 180).toFixed(2), // Random longitude
-      orbit_number: Math.floor(16000 + Math.random() * 2000), // Random orbit number (actual LRO has completed over 15,000 orbits)
-      mission_elapsed_time: "5177 days, 14 hours, 32 minutes" // Time since LRO launch (2009)
+      altitude: altitude, // km above Moon's surface
+      velocity: velocity, // km/s
+      latitude: lat, // degrees
+      longitude: lon, // degrees
+      orbit_number: orbit_number,
+      mission_elapsed_time: mission_elapsed_time,
+      // Save raw position data for visualization
+      rawPosition: { x, y, z }
     };
   } catch (error) {
     console.error("Error fetching LRO data:", error);
-    return null;
+    // Fallback to simulated data if API fails
+    return {
+      altitude: (LRO_PERILUNE + Math.random() * (LRO_APOLUNE - LRO_PERILUNE)).toFixed(1),
+      velocity: (1.6 + Math.random() * 0.2).toFixed(2),
+      latitude: (Math.random() * 180 - 90).toFixed(2),
+      longitude: (Math.random() * 360 - 180).toFixed(2),
+      orbit_number: Math.floor(16000 + Math.random() * 2000),
+      mission_elapsed_time: "5177+ days" // Approximate time since LRO launch (2009)
+    };
   }
 };
 
@@ -332,10 +441,19 @@ export const stopCurrentAnimation = () => {
   }
 };
 
-// Main function to show Lunar Orbiter visualization
-export const showLunarOrbiterLive = (scene, globe, globeGroup, camera) => {
+// Main function to show Lunar Orbiter visualization with real data
+export const showLunarOrbiterLive = async (scene, globe, globeGroup, camera) => {
   // Stop any existing animations first
   stopCurrentAnimation();
+  
+  // Ensure Earth and Moon orbiting variables are accessible globally
+  if (typeof window.isEarthOrbiting === 'undefined') {
+    window.isEarthOrbiting = false;
+  }
+  
+  if (typeof window.isMoonOrbiting === 'undefined') {
+    window.isMoonOrbiting = false;
+  }
   
   // Get the moon object from the scene
   let moon = null;
@@ -350,10 +468,31 @@ export const showLunarOrbiterLive = (scene, globe, globeGroup, camera) => {
     return;
   }
   
+  // Create loading indicator
+  const loadingIndicator = document.createElement("div");
+  loadingIndicator.id = "lro-loading";
+  loadingIndicator.style.position = "fixed";
+  loadingIndicator.style.top = "50%";
+  loadingIndicator.style.left = "50%";
+  loadingIndicator.style.transform = "translate(-50%, -50%)";
+  loadingIndicator.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+  loadingIndicator.style.color = "white";
+  loadingIndicator.style.padding = "20px";
+  loadingIndicator.style.borderRadius = "10px";
+  loadingIndicator.style.zIndex = "1000";
+  loadingIndicator.style.textAlign = "center";
+  loadingIndicator.innerHTML = `
+    <div>🛰️ Fetching Lunar Reconnaissance Orbiter data...</div>
+    <div style="font-size: 12px; margin-top: 10px;">Connecting to NASA JPL Horizons API</div>
+  `;
+  document.body.appendChild(loadingIndicator);
+  
   // Focus camera on the Moon - using the switchCameraFocus function from index.js
-  // We'll need to use window to access the global function
+  console.log("Setting camera focus to moon");
   if (window.switchCameraFocus) {
-    window.switchCameraFocus('moon');
+    // Set camera focus to the moon with a longer duration for smoother transition
+    // Allow user to freely navigate around the Moon with mouse
+    window.switchCameraFocus('moon', 3.0);
   } else {
     // Fallback if the function is not available
     console.warn("switchCameraFocus function not available, creating local focus function");
@@ -406,29 +545,79 @@ export const showLunarOrbiterLive = (scene, globe, globeGroup, camera) => {
   
   // Create the LRO
   const lro = createLunarOrbiter(scene, moon);
-  if (!lro) return;
-  
-  // Update the info panel with LRO data
-  const infoPanel = document.getElementById("verticalButton");
-  if (!infoPanel) return;
-  
-  // Set up the info panel
-  updateLROInfoPanel(infoPanel);
-  
-  // Set up an interval to update the info panel periodically
-  const infoPanelInterval = setInterval(() => {
-    updateLROInfoPanel(infoPanel);
-  }, 5000);
-  
-  // Store the interval for cleanup
-  if (!window.astronautToolIntervals) {
-    window.astronautToolIntervals = [];
+  if (!lro) {
+    document.body.removeChild(loadingIndicator);
+    return;
   }
-  window.astronautToolIntervals.push(infoPanelInterval);
+  
+  try {
+    // Fetch real LRO position data from NASA API
+    const lroData = await fetchLROData();
+    
+    // Remove loading indicator
+    document.body.removeChild(loadingIndicator);
+    
+    // Store the real position data in the LRO object for use in updateLROPosition
+    if (lroData && lroData.rawPosition) {
+      lro.userData.realPositionData = lroData.rawPosition;
+      console.log("LRO position data successfully fetched from NASA API:", lroData);
+    }
+    
+    // Update the info panel with LRO data
+    const infoPanel = document.getElementById("verticalButton");
+    if (!infoPanel) return;
+    
+    // Set up the info panel
+    updateLROInfoPanel(infoPanel);
+    
+    // Set up an interval to fetch new data and update the LRO position and info panel
+    const updateInterval = setInterval(async () => {
+      try {
+        const newLroData = await fetchLROData();
+        if (newLroData && newLroData.rawPosition) {
+          lro.userData.realPositionData = newLroData.rawPosition;
+        }
+        updateLROInfoPanel(infoPanel);
+      } catch (error) {
+        console.error("Error updating LRO data:", error);
+      }
+    }, 60000); // Update every minute
+    
+    // Store the interval for cleanup
+    if (!window.astronautToolIntervals) {
+      window.astronautToolIntervals = [];
+    }
+    window.astronautToolIntervals.push(updateInterval);
+    
+  } catch (error) {
+    console.error("Error initializing LRO with real data:", error);
+    document.body.removeChild(loadingIndicator);
+    
+    // Even if we fail to get real data, update the info panel with simulated data
+    const infoPanel = document.getElementById("verticalButton");
+    if (infoPanel) {
+      updateLROInfoPanel(infoPanel);
+      
+      // Set up an interval to update the info panel periodically with simulated data
+      const infoPanelInterval = setInterval(() => {
+        updateLROInfoPanel(infoPanel);
+      }, 5000);
+      
+      // Store the interval for cleanup
+      if (!window.astronautToolIntervals) {
+        window.astronautToolIntervals = [];
+      }
+      window.astronautToolIntervals.push(infoPanelInterval);
+    }
+  }
   
   // Generate a function to clean up the LRO visualization
   const cleanup = () => {
     removeLRO(scene, lro);
+    const loadingElem = document.getElementById("lro-loading");
+    if (loadingElem) {
+      document.body.removeChild(loadingElem);
+    }
   };
   
   return cleanup;

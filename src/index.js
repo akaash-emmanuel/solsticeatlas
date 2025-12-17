@@ -8,6 +8,7 @@ import * as satellite from 'satellite.js';
 import axios from 'axios';
 import { createSpaceBackground, createSpaceSkybox } from './components/SpaceBackground.js';
 
+
 // Import the astronaut tools components
 import * as AstronautTools from './components/AstronautTools.js';
 import * as Moon from './components/Moon.js';
@@ -22,7 +23,6 @@ import { createSaturn, updateSaturnPosition, toggleSaturnVisibility, SATURN_RADI
 import { createAsteroidBelt, updateAsteroidBelt, toggleAsteroidBeltVisibility } from './components/AsteroidBelt.js';
 import { createUranus, updateUranusPosition, URANUS_RADIUS } from './components/Uranus.js';
 import { createNeptune, updateNeptunePosition, toggleNeptuneVisibility, NEPTUNE_RADIUS } from './components/Neptune.js';
-
 
 // Import constants from Sun.js and Moon.js for camera positioning
 const SUN_RADIUS = 10; // Same as in Sun.js
@@ -50,6 +50,8 @@ let currentTypeWriter = null;
 let mouseX = 0;
 let mouseY = 0;
 let isGlobeRotating = true;
+let isEarthOrbiting = true; // Whether Earth orbits around the Sun
+let isMoonOrbiting = true; // Whether Moon orbits around the Earth
 let clock = new Clock(); // For tracking time in animations
 let cameraFocus = 'earth'; // Current camera focus: 'earth', 'sun', or 'moon'
 
@@ -161,33 +163,8 @@ function updateFocusButtonsUI() {
 
 // Function to create planet-specific monitor buttons when focusing on planets
 function createPlanetSpecificMonitorButtons() {
-  // Define which planets have atmospheric monitors available
-  const planetMonitors = {
-    'mars': {
-      name: 'Mars Weather Monitor',
-      icon: '🌪️',
-      description: 'Real-time Mars atmospheric conditions',
-      function: 'showMarsWeatherMonitor'
-    },
-    'venus': {
-      name: 'Venus Atmospheric Monitor', 
-      icon: '🔥',
-      description: 'Venus extreme atmospheric conditions',
-      function: 'showVenusAtmosphericMonitor'
-    },
-    'jupiter': {
-      name: 'Jupiter Atmospheric Monitor',
-      icon: '🌀', 
-      description: 'Jupiter atmospheric data from Juno mission',
-      function: 'showJupiterAtmosphericMonitor'
-    },
-    'saturn': {
-      name: 'Saturn Atmospheric Monitor',
-      icon: '💍',
-      description: 'Saturn rings and atmospheric data from Cassini',
-      function: 'showSaturnAtmosphericMonitor'
-    }
-  };
+  // All atmospheric monitors have been removed
+  const planetMonitors = {};
 
   // Check if current focus has an atmospheric monitor
   const currentMonitor = planetMonitors[cameraFocus];
@@ -251,7 +228,7 @@ function createPlanetSpecificMonitorButtons() {
     const planetName = cameraFocus;
     
     // Switch camera focus to the planet first
-    switchCameraFocus(planetName, 1.5);
+    switchCameraFocus(planetName,1.5);
     
     // Wait for camera transition to complete, then launch monitor
     setTimeout(() => {
@@ -267,51 +244,34 @@ function createPlanetSpecificMonitorButtons() {
         // Show loading indicator
         AstronautToolsModule.showLoadingIndicator();
         
-        // Call the appropriate monitor function based on current planet
+        // These monitor functions are no longer available as their component files have been removed
         setTimeout(() => {
           try {
-            let cleanupFunction;
+            console.log('The selected monitor is no longer available');
+            AstronautToolsModule.hideLoadingIndicator();
             
-            switch(currentMonitor.function) {
-              case 'showMarsWeatherMonitor':
-                import('./components/MarsWeatherMonitor.js').then(module => {
-                  cleanupFunction = module.showMarsWeatherMonitor(scene, Globe, globeGroup, camera);
-                  if (cleanupFunction && typeof cleanupFunction === 'function') {
-                    window.currentToolCleanup = cleanupFunction;
-                  }
-                  AstronautToolsModule.hideLoadingIndicator();
-                });
-                break;
-              case 'showVenusAtmosphericMonitor':
-                import('./components/VenusAtmosphericMonitor.js').then(module => {
-                  cleanupFunction = module.showVenusAtmosphericMonitor(scene, Globe, globeGroup, camera);
-                  if (cleanupFunction && typeof cleanupFunction === 'function') {
-                    window.currentToolCleanup = cleanupFunction;
-                  }
-                  AstronautToolsModule.hideLoadingIndicator();
-                });
-                break;
-              case 'showJupiterAtmosphericMonitor':
-                import('./components/JupiterAtmosphericMonitor.js').then(module => {
-                  cleanupFunction = module.showJupiterAtmosphericMonitor(scene, Globe, globeGroup, camera);
-                  if (cleanupFunction && typeof cleanupFunction === 'function') {
-                    window.currentToolCleanup = cleanupFunction;
-                  }
-                  AstronautToolsModule.hideLoadingIndicator();
-                });
-                break;
-              case 'showSaturnAtmosphericMonitor':
-                import('./components/SaturnAtmosphericMonitor.js').then(module => {
-                  cleanupFunction = module.showSaturnAtmosphericMonitor(scene, Globe, globeGroup, camera);
-                  if (cleanupFunction && typeof cleanupFunction === 'function') {
-                    window.currentToolCleanup = cleanupFunction;
-                  }
-                  AstronautToolsModule.hideLoadingIndicator();
-                });
-                break;
-              default:
-                console.error(`Unknown monitor function: ${currentMonitor.function}`);
-                AstronautToolsModule.hideLoadingIndicator();
+            // Display a notification that this feature is no longer available
+            const notification = document.createElement('div');
+            notification.style.position = 'fixed';
+            notification.style.top = '50%';
+            notification.style.left = '50%';
+            notification.style.transform = 'translate(-50%, -50%)';
+            notification.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+            notification.style.color = 'white';
+            notification.style.padding = '20px';
+            notification.style.borderRadius = '10px';
+            notification.style.zIndex = '10000';
+            notification.innerHTML = `<p>This feature is no longer available</p>`;
+            document.body.appendChild(notification);
+            
+            // Remove the notification after 3 seconds
+            setTimeout(() => {
+              notification.remove();
+            }, 3000);
+            
+            // Return to Earth view
+            if (typeof window.focusOnEarth === 'function') {
+              window.focusOnEarth();
             }
           } catch (error) {
             console.error(`Error launching ${currentMonitor.name}:`, error);
@@ -722,19 +682,17 @@ function initGlobe() {
     .hexPolygonsData(countries.features)
     .hexPolygonResolution(3)
     .hexPolygonMargin(0.7)
-    .showAtmosphere(true)
-    .atmosphereColor("#0c529c")
-    .atmosphereAltitude(0.4)
+    .showAtmosphere(false) // Atmosphere disabled to remove blue fog
     .hexPolygonColor(() => "rgba(255,255,255, 0.7)"); // Default color
 
   Globe.rotateY(-Math.PI * (5 / 9));
   Globe.rotateZ(-Math.PI / 6);
 
   const globeMaterial = Globe.globeMaterial();
-  globeMaterial.color = new Color(0x240750);
-  globeMaterial.emissive = new Color(0x220038);
-  globeMaterial.emissiveIntensity = 0.05;
-  globeMaterial.shininess = 0.5;
+  globeMaterial.color = new Color(0x000033); // Changed from 0x240750 (dark purple) to very dark blue
+  globeMaterial.emissive = new Color(0x000000); // Changed from 0x220038 (dark purple) to black
+  globeMaterial.emissiveIntensity = 0;  // Reduced from 0.05
+  globeMaterial.shininess = 0.7;  // Increased from 0.5
 
   globeGroup.add(Globe);
 
@@ -757,10 +715,16 @@ function convertLatLonToXYZ(lat, lon, radius) {
 }
 function getQuakeColor(magnitude) {
   if (!magnitude) return '#ffffff'; // Default color if magnitude is undefined
-  if (magnitude >= 7) return '#FF0000';      // Red
-  if (magnitude >= 6) return '#FF6600';      // Orange
-  if (magnitude >= 5) return '#FFCC00';      // Yellow
-  return '#00FF00';                          // Green
+  
+  // Enhanced color scale with more granular differentiation
+  if (magnitude >= 8) return '#FF0000';      // Pure Red (Severe)
+  if (magnitude >= 7) return '#FF3300';      // Red-Orange (Major)
+  if (magnitude >= 6.5) return '#FF6600';    // Orange (Strong+)
+  if (magnitude >= 6) return '#FF9900';      // Dark Orange (Strong)
+  if (magnitude >= 5.5) return '#FFCC00';    // Dark Yellow (Moderate+)
+  if (magnitude >= 5) return '#FFFF00';      // Yellow (Moderate)
+  if (magnitude >= 4.5) return '#CCFF00';    // Yellow-Green (Light+)
+  return '#00FF00';                          // Green (Light)
 }
 function drawCountryBorders() {
   const globeRadius = Globe.getGlobeRadius();
@@ -1122,8 +1086,8 @@ function initNeptune() {
 function animate() {
   const deltaTime = clock.getDelta(); // Get time since last frame
   
-  // Update Earth's position around the Sun if both exist
-  if (sun && globeGroup) {
+  // Update Earth's position around the Sun if both exist and orbiting is enabled
+  if (sun && globeGroup && isEarthOrbiting) {
     Sun.updateEarthPosition(globeGroup, sun, deltaTime, moon);
   }
   
@@ -1131,8 +1095,8 @@ function animate() {
     globeGroup.rotation.y += 0.002; // Rotate the globe only if the flag is true
   }
   
-  // Update moon position if it exists
-  if (moon) {
+  // Update moon position if it exists and orbiting is enabled
+  if (moon && isMoonOrbiting) {
     Moon.updateMoonPosition(moon, globeGroup, deltaTime);
   }
   
@@ -1176,13 +1140,6 @@ function animate() {
     updateAsteroidBelt(asteroidBelt, deltaTime);
   }
 
-  // Update Apollo mission simulation if active
-  updateApolloMission();
-  
-  // Follow Apollo spacecraft with camera if active
-  if (apolloMissionSimulator && apolloMissionSimulator.missionActive) {
-    apolloMissionSimulator.followSpacecraft(camera, controls);
-  }
 
   // Update LRO position if it exists
   scene.traverse((object) => {
@@ -1244,12 +1201,37 @@ function updateCameraForMovingObjects() {
     // Update controls target to follow the object
     controls.target.copy(targetPosition);
     
-    // Calculate new camera position
+    // Get the direction from target to camera (normalized)
     const cameraDirection = new Vector3().subVectors(camera.position, currentTarget).normalize();
-    const newCameraPosition = targetPosition.clone().add(cameraDirection.multiplyScalar(currentDistance));
     
-    // Smoothly adjust camera position
-    camera.position.lerp(newCameraPosition, 0.05);
+    // Calculate new camera position with fixed distances for specific objects
+    let newDistance;
+    
+    // Allow user to control the zoom and positioning for Earth and Moon
+    if (cameraFocus === 'moon' || cameraFocus === 'earth') {
+      // For Earth and Moon, allow free navigation with the mouse
+      // Only update the target position, not the camera distance
+      controls.target.copy(targetPosition);
+      
+      // Get last user-controlled distance
+      const userControlledDistance = camera.position.distanceTo(targetPosition);
+      
+      // Only apply a very gentle camera adjustment to follow the object
+      // This keeps the object in view without restricting mouse control
+      const gentleAdjustment = 0.015; // Very small adjustment factor
+      camera.position.lerp(
+        targetPosition.clone().add(cameraDirection.multiplyScalar(userControlledDistance)), 
+        gentleAdjustment
+      );
+    } else {
+      // For other objects, maintain fixed distances or current distance
+      newDistance = currentDistance;
+      
+      const newCameraPosition = targetPosition.clone().add(cameraDirection.multiplyScalar(newDistance));
+      
+      // Smoothly adjust camera position (reduced lerp factor for smoother movement)
+      camera.position.lerp(newCameraPosition, 0.03);
+    }
     
     // Ensure camera is always looking at the target
     camera.lookAt(targetPosition);
@@ -1331,44 +1313,6 @@ function createButtons() {
   earthquakeButton.style.cursor = "pointer";
   menuContent.appendChild(earthquakeButton);
 
-  // Create Apollo 11 Mission button
-  const apolloMissionButton = document.createElement("button");
-  apolloMissionButton.innerHTML = `<span style="margin-right: 8px;">🚀</span> Apollo 11 Mission`;
-  apolloMissionButton.style.padding = "10px 20px";
-  apolloMissionButton.style.fontSize = "16px";
-  apolloMissionButton.style.backgroundColor = "#0039a6"; // NASA blue
-  apolloMissionButton.style.color = "#ffffff";
-  apolloMissionButton.style.border = "2px solid #f9f9f9";
-  apolloMissionButton.style.borderRadius = "5px";
-  apolloMissionButton.style.cursor = "pointer";
-  apolloMissionButton.style.display = "flex";
-  apolloMissionButton.style.alignItems = "center";
-  apolloMissionButton.style.justifyContent = "center";
-  apolloMissionButton.style.margin = "5px 0";
-  apolloMissionButton.style.fontWeight = "bold";
-  apolloMissionButton.style.letterSpacing = "0.5px";
-  apolloMissionButton.style.boxShadow = "0 0 10px rgba(255, 255, 255, 0.3)";
-  
-  // Add hover effect
-  apolloMissionButton.addEventListener("mouseover", () => {
-    apolloMissionButton.style.backgroundColor = "#004fca";
-    apolloMissionButton.style.transform = "scale(1.05)";
-    apolloMissionButton.style.transition = "all 0.3s ease";
-  });
-  
-  apolloMissionButton.addEventListener("mouseout", () => {
-    apolloMissionButton.style.backgroundColor = "#0039a6";
-    apolloMissionButton.style.transform = "scale(1)";
-  });
-  
-  // Add click event handler for Apollo mission
-  apolloMissionButton.addEventListener("click", () => {
-    startApolloMission();
-    hamburgerMenu.style.display = "none"; // Close menu after selection
-  });
-  
-  menuContent.appendChild(apolloMissionButton);
-
   // Create Astronaut Tools button
   const astronautButton = document.createElement("button");
   astronautButton.innerText = "Astronaut Tools";
@@ -1385,20 +1329,13 @@ function createButtons() {
     // Stop any current animations and clear text
     stopCurrentAnimation();
     stopCurrentTypeWriter();
-    
     // Clear any existing globe visualizations
     Globe.arcsData([]);
     AstronautTools.clearDebrisAndOrbits(globeGroup);
-    
-    // Clean up Apollo mission if active
-    cleanupApolloMission();
-    
     // Show the astronaut tools menu
     AstronautTools.showAstronautToolsMenu(scene, Globe, globeGroup, camera);
-    
     // Hide the main menu once astronaut tools are opened
     menuContent.style.display = "none";
-    
     console.log("Astronaut Tools menu initialized");
   });
 
@@ -1421,97 +1358,101 @@ function createButtons() {
     Globe.arcsData([]); // Clear existing arcs
     AstronautTools.clearDebrisAndOrbits(globeGroup); // Clear any existing visualizations
     
-    // Clean up Apollo mission if active
-    cleanupApolloMission();
+    // Set camera focus to Earth but we'll use our custom zoom instead of switchCameraFocus
+    cameraFocus = 'earth';
+    updateFocusButtonsUI();
     
-    addEarthquakeVisualization(); // Add the new earthquake visualization
-    menuContent.style.display = "none"; // Close menu after click
-  });
-
-  // Add event listener for Apollo 11 Mission Button
-  apolloMissionButton.addEventListener("click", () => {
-    stopCurrentAnimation();
-    stopCurrentTypeWriter();
-    Globe.arcsData([]); // Clear existing arcs
-    AstronautTools.clearDebrisAndOrbits(globeGroup); // Clear any existing visualizations
+    // Store original function and reset camera position to ensure direct path
+    let originalUpdateFunction = updateCameraForMovingObjects;
+    updateCameraForMovingObjects = function() {}; // Replace with empty function
     
-    // Initialize and start Apollo 11 mission simulation
-    initApolloMission();
-    startApolloMission();
+    // Position camera directly behind the Earth for a clean starting point
+    camera.position.set(0, 0, 400);
     
-    // Position camera to focus on Earth at the start of the mission
-    // Will give a good view of the rocket launch and initial orbit
-    camera.position.set(20, 50, 120);
-    controls.target.set(0, 0, 0); // Focus on Earth at the beginning
+    // Force disable auto-rotation for better viewing
+    controls.autoRotate = false;
     
-    // Smoothly animate to the new view
-    const startPos = camera.position.clone();
-    const endPos = new Vector3(20, 50, 120);
-    const startTarget = controls.target.clone();
-    const endTarget = new Vector3(0, 0, 0);
+    // Keep orbit controls enabled for manual rotation with mouse
+    controls.enabled = true;
     
-    gsap.to(camera.position, {
-      x: endPos.x,
-      y: endPos.y,
-      z: endPos.z,
-      duration: 2.5,
-      ease: "power2.inOut",
-      onUpdate: () => {
-        camera.lookAt(controls.target);
+    // Stop automatic globe rotation for better focus on earthquakes
+    isGlobeRotating = false;
+    
+    // Store the current Earth orbiting state and pause Earth's revolution around the Sun
+    let originalEarthOrbitingState = isEarthOrbiting;
+    isEarthOrbiting = false;
+    
+    // Adjust camera to get a nice Earth-centered view
+    const zoomToEarth = () => {
+      // Set specific camera position for optimal earthquake viewing
+      const targetPosition = new Vector3(0, 0, 180); // Not too close, not too far
+      const lookAtPosition = new Vector3(0, 0, 0);   // Look at Earth's center
+      
+      // Make sure controls target is also centered on Earth
+      controls.target.set(0, 0, 0);
+      
+      // Animate directly to the new position
+      const startPosition = camera.position.clone();
+      const duration = 1.5; // Shorter duration for more direct movement
+      const startTime = Date.now();
+      
+      function animateCamera() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / (duration * 1000), 1);
+        
+        // Simple smooth easing function
+        const easeProgress = Math.sin(progress * Math.PI / 2); // Smoother acceleration
+        
+        // Update camera position with direct path
+        camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+        camera.lookAt(lookAtPosition);
+        
+        // Continue animation until complete
+        if (progress < 1) {
+          requestAnimationFrame(animateCamera);
+        } else {
+          // Once camera movement is complete, restore the updateCameraForMovingObjects function
+          // but modify it to maintain our close position
+          updateCameraForMovingObjects = function() {
+            if (cameraFocus === 'earth' && globeGroup) {
+              // Keep the camera target on Earth
+              controls.target.copy(globeGroup.position);
+              
+              // Don't override the camera position when in earthquake mode
+              // This allows the user to freely rotate and move the camera with mouse controls
+              // We'll just make sure the target stays centered on Earth
+              
+              // Only constrain the distance, don't force the exact camera position
+              const currentDistance = camera.position.distanceTo(controls.target);
+              
+              // If the distance is significantly different than our desired value, adjust it gently
+              if (Math.abs(currentDistance - 180) > 50) {
+                const currentDirection = new Vector3().subVectors(camera.position, controls.target).normalize();
+                const newCameraPosition = controls.target.clone().add(currentDirection.multiplyScalar(180));
+                camera.position.lerp(newCameraPosition, 0.01); // Very gentle adjustment
+              }
+            } else {
+              // For other targets, restore original behavior
+              originalUpdateFunction();
+            }
+          };
+          
+          // Once camera movement is complete, add earthquake visualization
+          addEarthquakeVisualization();
+        }
       }
-    });
+      
+      // Start the camera animation
+      animateCamera();
+    };
     
-    gsap.to(controls.target, {
-      x: endTarget.x,
-      y: endTarget.y,
-      z: endTarget.z,
-      duration: 2.5,
-      ease: "power2.inOut",
-      onUpdate: () => {
-        controls.update();
-      }
-    });
-    
-    // Show mission notification
-    const notification = document.createElement('div');
-    notification.style.position = 'absolute';
-    notification.style.bottom = '20px';
-    notification.style.left = '20px';
-    notification.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    notification.style.color = '#fff';
-    notification.style.padding = '15px 20px';
-    notification.style.borderRadius = '8px';
-    notification.style.fontFamily = "'Montserrat', sans-serif";
-    notification.style.fontSize = '16px';
-    notification.style.zIndex = '1000';
-    notification.style.border = '1px solid rgba(255, 255, 255, 0.3)';
-    notification.style.boxShadow = '0 0 20px rgba(0, 150, 255, 0.5)';
-    notification.textContent = 'Apollo 11 Mission Simulation Started';
-    notification.id = 'apollo-notification';
-    
-    document.body.appendChild(notification);
-    
-    // Remove notification after 5 seconds
-    setTimeout(() => {
-      const notificationElement = document.getElementById('apollo-notification');
-      if (notificationElement) {
-        notificationElement.style.opacity = '0';
-        notificationElement.style.transition = 'opacity 1s ease';
-        setTimeout(() => {
-          if (notificationElement.parentNode) {
-            notificationElement.parentNode.removeChild(notificationElement);
-          }
-        }, 1000);
-      }
-    }, 5000);
+    // Begin the camera movement
+    zoomToEarth();
     
     menuContent.style.display = "none"; // Close menu after click
   });
 
   resetButton.addEventListener("click", () => {
-    // Clean up Apollo mission if active
-    cleanupApolloMission();
-    
     window.location.reload(); // Refresh the page
     menuContent.style.display = "none"; // Close menu after click
   });
@@ -1520,39 +1461,6 @@ function createButtons() {
   hamburgerMenu.addEventListener("click", () => {
     menuContent.style.display = menuContent.style.display === "flex" ? "none" : "flex";
   });
-}
-
-// Apollo Mission Simulator integration
-import { ApolloMissionSimulator } from './components/ApolloMissionSimulator.js';
-
-let apolloMissionSimulator;
-
-function initApolloMission() {
-  apolloMissionSimulator = new ApolloMissionSimulator(scene);
-}
-
-function startApolloMission() {
-  if (apolloMissionSimulator) {
-    apolloMissionSimulator.startMission();
-  }
-}
-
-function updateApolloMission() {
-  if (apolloMissionSimulator) {
-    // Update Earth position in Apollo mission simulator to match current position
-    if (globeGroup) {
-      apolloMissionSimulator.updateEarthPosition(globeGroup);
-    }
-    
-    // Update mission state
-    apolloMissionSimulator.updateMission();
-  }
-}
-
-function cleanupApolloMission() {
-  if (apolloMissionSimulator) {
-    apolloMissionSimulator.cleanup();
-  }
 }
 
 // Start the application when DOM is ready
@@ -1570,30 +1478,120 @@ if (document.readyState === 'loading') {
 // Switch camera focus function
 function switchCameraFocus(target, duration = 1.5) {
   if (!target) return;
+  
+  // Store the target for use in updateCameraForMovingObjects
+  cameraFocus = target.toLowerCase();
+  console.log(`Switching camera focus to: ${cameraFocus}`);
+  
+  // Update UI to reflect the new focus
+  updateFocusButtonsUI();
 
-  let targetPosition, lookAtPosition;
-  const distanceFactor = 1;
+  // If we're switching away from Earth (earthquake mode), resume Earth's orbit and clean up
+  if (cameraFocus === 'earth' && target.toLowerCase() !== 'earth') {
+    // Resume Earth's orbit when leaving Earth focus (exiting earthquake mode)
+    isEarthOrbiting = true;
+    
+    // Clear earthquake visualization dots/points
+    Globe.pointsData([]);
+    
+    // Remove earthquake info panel if it exists
+    const earthquakePanel = document.getElementById('earthquake-info-panel');
+    if (earthquakePanel) {
+      earthquakePanel.remove();
+    }
+  }
+  
+  // Special handling for LRO and Moon focus
+  // We don't manage the orbital states here as that's now handled in the LRO button directly
+  // This allows other tools/functions to focus on the moon without affecting orbits
 
-  // Determine target position based on celestial body
-  switch (target.toLowerCase()) {
+  let targetObject, targetPosition, lookAtPosition;
+  
+  // Determine target based on celestial body
+  switch (cameraFocus) {
     case 'earth':
-      targetPosition = new Vector3(0, 0, 400);
+      targetObject = globeGroup;
       lookAtPosition = new Vector3(0, 0, 0);
       break;
     case 'moon':
-      targetPosition = new Vector3(300, 0, 0);
-      lookAtPosition = new Vector3(0, 0, 0);
+      // Find the moon object
+      targetObject = moon;
       break;
     case 'sun':
-      targetPosition = new Vector3(0, 0, -1000);
+      targetObject = sun;
+      break;
+    case 'mercury':
+      targetObject = mercury;
+      break;
+    case 'venus':
+      targetObject = venus;
+      break;
+    case 'mars':
+      targetObject = mars;
+      break;
+    case 'jupiter':
+      targetObject = jupiter;
+      break;
+    case 'saturn':
+      targetObject = saturn;
+      break;
+    case 'uranus':
+      targetObject = uranus;
+      break;
+    case 'neptune':
+      targetObject = neptune;
+      break;
+    case 'asteroidbelt':
+      // For asteroid belt, use a position near Jupiter/Mars
+      targetPosition = new Vector3(0, 0, -3000);
       lookAtPosition = new Vector3(0, 0, 0);
       break;
-    // Add other celestial bodies as needed
     default:
       console.warn(`Unknown target: ${target}`);
       return;
   }
 
+  // If we have a target object, get its position
+  if (targetObject) {
+    // Get position of the target object
+    targetPosition = new Vector3();
+    targetObject.getWorldPosition(targetPosition);
+    
+    // Set lookAtPosition to the same as targetPosition
+    lookAtPosition = targetPosition.clone();
+    
+    // Determine appropriate viewing distance based on object size
+    let viewDistance;
+    if (targetObject === moon) {
+      viewDistance = moon.geometry.parameters.radius * 3; // 3x moon radius - balanced zoom for detail and navigation
+    } else if (targetObject === sun) {
+      viewDistance = 1000; // Sun is large, view from further away
+    } else if (targetObject === globeGroup) {
+      viewDistance = 400; // Standard Earth viewing distance
+    } else {
+      // For other planets, estimate based on their geometry if available
+      viewDistance = targetObject.geometry?.parameters?.radius 
+        ? targetObject.geometry.parameters.radius * 3.5 // Closer zoom for all planets
+        : 500; // Default distance
+    }
+    
+    // Calculate a position that's "viewDistance" away from the target in the direction from origin to target
+    const directionToTarget = targetPosition.clone().normalize();
+    
+    // Create a position offset from the target
+    // Use an offset direction based on the camera's current position
+    const cameraOffsetDir = new Vector3().subVectors(camera.position, targetPosition).normalize();
+    
+    // Calculate final camera position
+    targetPosition = targetPosition.clone().add(cameraOffsetDir.multiplyScalar(viewDistance));
+    
+    // Make sure controls target is updated for proper orbiting
+    controls.target.copy(lookAtPosition);
+  }
+  
+  console.log(`Moving camera to position: ${targetPosition.x}, ${targetPosition.y}, ${targetPosition.z}`);
+  console.log(`Looking at position: ${lookAtPosition.x}, ${lookAtPosition.y}, ${lookAtPosition.z}`);
+  
   // Animate camera transition
   const startPosition = camera.position.clone();
   const startTime = Date.now();
@@ -1602,19 +1600,744 @@ function switchCameraFocus(target, duration = 1.5) {
     const elapsed = Date.now() - startTime;
     const progress = Math.min(elapsed / (duration * 1000), 1);
 
-    // Ease-in-out function
+    // Enhanced ease-in-out function for smoother transitions
+    // Using a cubic bezier curve approximation for more natural movement
     const easeProgress = progress < 0.5
-      ? 2 * progress * progress
-      : -1 + (4 - 2 * progress) * progress;
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
     // Update camera position
     camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+    
+    // Look at the target
     camera.lookAt(lookAtPosition);
 
     if (progress < 1) {
       requestAnimationFrame(animateCamera);
+    } else {
+      // After animation completes, ensure the controls are looking at the correct target
+      controls.target.copy(lookAtPosition);
+      
+      // Set appropriate min/max distance constraints based on the object
+      if (cameraFocus === 'moon' && moon) {
+        const moonRadius = moon.geometry.parameters.radius;
+        // Wider range for Moon to allow better user navigation
+        controls.minDistance = moonRadius * 1.2; // Allow closer view
+        controls.maxDistance = moonRadius * 10.0; // Allow zooming out significantly to see context
+        // Enable Earth-like navigation for the Moon
+        controls.enableDamping = false;
+        controls.enableZoom = true;
+        controls.autoRotate = false;
+        controls.rotateSpeed = 0.8; // Same as Earth rotation speed
+      } else {
+        // Reset to default min/max distances for other objects
+        controls.minDistance = 115;
+        controls.maxDistance = 50000;
+      }
+      
+      controls.update();
     }
   }
 
   animateCamera();
+}
+
+// Enhanced function to visualize earthquake data using ThreeGlobe's ripple effect
+async function addEarthquakeVisualization() {
+  try {
+    // Show loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.style.position = 'absolute';
+    loadingDiv.style.top = '50%';
+    loadingDiv.style.left = '50%';
+    loadingDiv.style.transform = 'translate(-50%, -50%)';
+    loadingDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    loadingDiv.style.color = 'white';
+    loadingDiv.style.padding = '20px';
+    loadingDiv.style.borderRadius = '10px';
+    loadingDiv.style.zIndex = '2000';
+    loadingDiv.style.fontFamily = "'Montserrat', sans-serif";
+    loadingDiv.innerHTML = '<div>🌍 Loading earthquake data...</div>';
+    loadingDiv.id = 'earthquake-loading';
+    document.body.appendChild(loadingDiv);
+
+    // Fetch earthquake data from USGS API - significant earthquakes (all magnitudes, past month)
+    const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson');
+    const earthquakeData = await response.json();
+
+    // Also fetch larger dataset with 4.5+ magnitude quakes for more comprehensive visualization (past week)
+    const additionalResponse = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson');
+    const additionalData = await additionalResponse.json();
+    
+    // Combine datasets, removing duplicates
+    const combinedFeatures = [...earthquakeData.features];
+    const existingIds = new Set(combinedFeatures.map(f => f.id));
+    
+    additionalData.features.forEach(feature => {
+      if (!existingIds.has(feature.id)) {
+        combinedFeatures.push(feature);
+      }
+    });
+
+    // Remove loading indicator
+    const loading = document.getElementById('earthquake-loading');
+    if (loading) {
+      document.body.removeChild(loading);
+    }
+
+    // Process earthquake data for ripple visualization
+    const rippleData = combinedFeatures.map(feature => {
+      const coords = feature.geometry.coordinates;
+      const magnitude = feature.properties.mag;
+      const place = feature.properties.place;
+      const time = new Date(feature.properties.time);
+      const depth = coords[2];
+      const title = feature.properties.title;
+      const url = feature.properties.url;
+      const tsunami = feature.properties.tsunami;
+      
+      // Calculate ripple properties based on earthquake magnitude
+      // Enhanced calculation for better visual differentiation and more concise ripples
+      const maxRadius = Math.min(20, magnitude * 2.5); // Reduced radius for more concise visualization
+      
+      // Faster propagation for stronger quakes but still visible for smaller ones
+      const propagationSpeed = Math.min(magnitude * 1.2, 6);
+      
+      // Reduced repeat periods to make origins more visible
+      const repeatPeriod = Math.max(1200, 800 * (9 - magnitude));
+      
+      // Calculate ripple altitude based on magnitude for a 3D effect
+      const altitude = 0.005 + (magnitude >= 6 ? 0.005 : 0);
+      
+      // Add a small permanent "dot" at the epicenter
+      const epicenterSize = Math.max(0.2, magnitude * 0.1); // Size based on magnitude
+      
+      return {
+        lat: coords[1],
+        lng: coords[0],
+        maxR: maxRadius,
+        propagationSpeed: propagationSpeed,
+        repeatPeriod: repeatPeriod,
+        color: getQuakeColor(magnitude),
+        altitude: altitude, // Add altitude for 3D effect
+        startRadius: 0.5, // Add starting radius so rings don't start from a single point
+        // Store additional metadata for the info panel
+        magnitude: magnitude,
+        place: place,
+        time: time,
+        depth: depth,
+        title: title,
+        url: url,
+        tsunami: tsunami ? true : false,
+        epicenterSize: epicenterSize // Store for potential epicenter marker
+      };
+    });
+
+    // Apply enhanced ripple effect to the globe with more concise rings
+    // First, add markers at epicenters for better visibility of origins
+    const epicenters = rippleData.map(quake => ({
+      lat: quake.lat,
+      lng: quake.lng,
+      size: quake.epicenterSize,
+      color: quake.color,
+      altitude: quake.altitude
+    }));
+    
+    // Apply ripple effect with modified parameters for more concise rings
+    Globe
+      .ringsData(rippleData)
+      .ringColor('color')
+      .ringMaxRadius('maxR')
+      .ringPropagationSpeed('propagationSpeed')
+      .ringRepeatPeriod('repeatPeriod')
+      .ringAltitude('altitude')
+      // Add small permanent points at epicenters
+      .pointsData(epicenters)
+      .pointColor('color')
+      .pointAltitude('altitude')
+      .pointRadius('size');
+
+    // Create enhanced information panel for earthquakes
+    createEarthquakeInfoPanel(rippleData);
+
+    console.log(`Loaded ${rippleData.length} earthquake events with enhanced ripple visualization`);
+
+  } catch (error) {
+    console.error('Error loading earthquake data:', error);
+
+    // Remove loading indicator if there's an error
+    const loading = document.getElementById('earthquake-loading');
+    if (loading) {
+      document.body.removeChild(loading);
+    }
+
+    // Show error message
+    const errorDiv = document.createElement('div');
+    errorDiv.style.position = 'absolute';
+    errorDiv.style.top = '50%';
+    errorDiv.style.left = '50%';
+    errorDiv.style.transform = 'translate(-50%, -50%)';
+    errorDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+    errorDiv.style.color = 'white';
+    errorDiv.style.padding = '20px';
+    errorDiv.style.borderRadius = '10px';
+    errorDiv.style.zIndex = '2000';
+    errorDiv.style.fontFamily = "'Montserrat', sans-serif";
+    errorDiv.innerHTML = '<div>❌ Failed to load earthquake data. Please check your internet connection.</div>';
+    document.body.appendChild(errorDiv);
+
+    setTimeout(() => {
+      document.body.removeChild(errorDiv);
+    }, 3000);
+  }
+}
+
+// Create an enhanced informational panel explaining earthquake visualization with color coding and details
+function createEarthquakeInfoPanel(earthquakeData) {
+  // Remove existing panel if any
+  const existingPanel = document.getElementById('earthquake-info-panel');
+  if (existingPanel) {
+    existingPanel.remove();
+  }
+  
+  // Create panel container with improved styling
+  const panel = document.createElement('div');
+  panel.id = 'earthquake-info-panel';
+  Object.assign(panel.style, {
+    position: 'absolute',
+    bottom: '30px',
+    right: '30px',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)', // Slightly darker for better readability
+    color: 'white',
+    padding: '20px',
+    borderRadius: '12px',
+    fontFamily: "'Montserrat', sans-serif",
+    maxWidth: '380px',
+    maxHeight: '75vh',
+    overflowY: 'auto',
+    zIndex: '1000',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    boxShadow: '0 4px 20px rgba(0, 0, 255, 0.4)',
+    backdropFilter: 'blur(5px)' // Modern blur effect for better UI
+  });
+  
+  // Create header with improved styling
+  const header = document.createElement('div');
+  header.innerHTML = `<h3 style="margin-top:0;color:#4a90e2;display:flex;align-items:center;font-size:18px;">
+    <span style="margin-right:10px;">🌊</span> Global Earthquake Visualization
+  </h3>`;
+  panel.appendChild(header);
+  
+  // Add enhanced explanation text with more details
+  const explanation = document.createElement('div');
+  explanation.style.marginBottom = '18px';
+  explanation.style.lineHeight = '1.5';
+  explanation.style.fontSize = '14px';
+  explanation.innerHTML = `
+    <p>This visualization shows recent earthquakes as ripple effects on the globe. Each ripple represents seismic waves propagating from earthquake epicenters, with properties that correspond to real-world data:</p>
+    
+    <div style="background-color:rgba(255,255,255,0.1);border-radius:8px;padding:12px;margin:10px 0;">
+      <p style="margin-top:0;"><strong>Visual Elements:</strong></p>
+      <ul style="padding-left: 20px; margin: 5px 0;">
+        <li><strong>Epicenter Points:</strong> Small dots mark the exact origin of each earthquake</li>
+        <li><strong>Ripple Size:</strong> Concise rings proportional to earthquake magnitude</li>
+        <li><strong>Ripple Speed:</strong> Stronger quakes have faster propagating waves</li>
+        <li><strong>Repeat Rate:</strong> Major quakes pulse more frequently</li>
+        <li><strong>Ripple Height:</strong> Major quakes (6+) create slightly elevated ripples</li>
+      </ul>
+      <p style="margin-top:8px;margin-bottom:0;font-size:12px;font-style:italic;">Click on any earthquake in the list below to center the view on its location.</p>
+    </div>
+    
+    <p><strong>Color Coding by Magnitude:</strong></p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="background-color:#FF0000;color:white;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Severe:</strong> ≥8.0
+      </div>
+      <div style="background-color:#FF3300;color:white;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Major:</strong> 7.0-7.9
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="background-color:#FF6600;color:white;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Strong+:</strong> 6.5-6.9
+      </div>
+      <div style="background-color:#FF9900;color:white;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Strong:</strong> 6.0-6.4
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="background-color:#FFCC00;color:black;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Moderate+:</strong> 5.5-5.9
+      </div>
+      <div style="background-color:#FFFF00;color:black;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Moderate:</strong> 5.0-5.4
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="background-color:#CCFF00;color:black;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Light+:</strong> 4.5-4.9
+      </div>
+      <div style="background-color:#00FF00;color:black;padding:6px 10px;border-radius:4px;font-size:12px;flex-grow:1;">
+        <strong>Light:</strong> <4.5
+      </div>
+    </div>
+    
+    <p><em>Data source: USGS Earthquake Hazards Program</em></p>
+  `;
+  panel.appendChild(explanation);
+  
+  // Add tabs for different views
+  const tabContainer = document.createElement('div');
+  tabContainer.style.display = 'flex';
+  tabContainer.style.borderBottom = '1px solid #555';
+  tabContainer.style.marginBottom = '15px';
+  
+  const recentTab = document.createElement('div');
+  recentTab.innerHTML = 'Recent Events';
+  recentTab.style.padding = '8px 15px';
+  recentTab.style.cursor = 'pointer';
+  recentTab.style.borderBottom = '2px solid #4a90e2';
+  recentTab.style.color = '#4a90e2';
+  
+  const statsTab = document.createElement('div');
+  statsTab.innerHTML = 'Statistics';
+  statsTab.style.padding = '8px 15px';
+  statsTab.style.cursor = 'pointer';
+  statsTab.style.opacity = '0.7';
+  
+  tabContainer.appendChild(recentTab);
+  tabContainer.appendChild(statsTab);
+  panel.appendChild(tabContainer);
+  
+  // Create content container for tabs
+  const contentContainer = document.createElement('div');
+  panel.appendChild(contentContainer);
+  
+  // Create recent earthquakes list with more details and improved styling
+  function showRecentEvents() {
+    contentContainer.innerHTML = '';
+    
+    const recentHeader = document.createElement('div');
+    recentHeader.innerHTML = '<h4 style="margin: 10px 0;">Significant Recent Earthquakes</h4>';
+    contentContainer.appendChild(recentHeader);
+    
+    // Sort earthquakes by time (most recent first)
+    const sortedEarthquakes = [...earthquakeData].sort((a, b) => b.time - a.time);
+    
+    // Take only significant earthquakes
+    const significantEarthquakes = sortedEarthquakes
+      .filter(quake => quake.magnitude >= 5.0)
+      .slice(0, 7); // Show more events for better context
+    
+    const eventsList = document.createElement('div');
+    
+    if (significantEarthquakes.length === 0) {
+      eventsList.innerHTML = '<p style="font-style: italic; color: #aaa;">No significant earthquakes in the recent data.</p>';
+    } else {
+      significantEarthquakes.forEach(quake => {
+        const quakeItem = document.createElement('div');
+        quakeItem.style.margin = '10px 0';
+        quakeItem.style.padding = '10px';
+        quakeItem.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+        quakeItem.style.borderRadius = '8px';
+        quakeItem.style.borderLeft = `5px solid ${quake.color}`;
+        quakeItem.style.transition = 'transform 0.2s';
+        quakeItem.style.cursor = 'pointer';
+        
+        // Add hover effect
+        quakeItem.addEventListener('mouseover', () => {
+          quakeItem.style.transform = 'translateX(5px)';
+          quakeItem.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+        });
+        
+        quakeItem.addEventListener('mouseout', () => {
+          quakeItem.style.transform = 'translateX(0)';
+          quakeItem.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+        });
+        
+        const timeString = quake.time.toLocaleString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit'
+        });
+        
+        // Add tsunami warning icon if applicable
+        const tsunamiWarning = quake.tsunami ? 
+          '<span title="Tsunami Alert Issued" style="color:#FF5252;margin-left:5px;">🌊</span>' : '';
+        
+        quakeItem.innerHTML = `
+          <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">${quake.place} ${tsunamiWarning}</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); font-size: 12px; margin-top: 5px;">
+            <div style="display: flex; align-items: center;">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: ${quake.color}; margin-right: 5px;"></span>
+              <span style="font-weight: bold;">M${quake.magnitude.toFixed(1)}</span>
+            </div>
+            <div>Depth: ${quake.depth.toFixed(1)} km</div>
+            <div>${timeString}</div>
+          </div>
+        `;
+        
+        // Clicking on an earthquake will center the globe view on that location
+        quakeItem.addEventListener('click', () => {
+          // Animate to earthquake location - smooth transition
+          const distanceFromCenter = 400; // Distance from center to position camera
+          const targetLatRad = quake.lat * (Math.PI / 180);
+          const targetLngRad = -quake.lng * (Math.PI / 180); // Negate for correct orientation
+          
+          // Calculate camera position based on lat/lng
+          const cameraX = distanceFromCenter * Math.cos(targetLatRad) * Math.cos(targetLngRad);
+          const cameraY = distanceFromCenter * Math.sin(targetLatRad);
+          const cameraZ = distanceFromCenter * Math.cos(targetLatRad) * Math.sin(targetLngRad);
+          
+          // Set up animation
+          const currentPos = camera.position.clone();
+          const targetPos = new Vector3(cameraX, cameraY, cameraZ);
+          
+          // Animate camera movement
+          new TWEEN.Tween(currentPos)
+            .to(targetPos, 1000)
+            .easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+              camera.position.set(currentPos.x, currentPos.y, currentPos.z);
+              camera.lookAt(0, 0, 0);
+            })
+            .start();
+        });
+        
+        eventsList.appendChild(quakeItem);
+      });
+      
+      // Add note about clicking
+      const clickNote = document.createElement('div');
+      clickNote.style.fontSize = '12px';
+      clickNote.style.fontStyle = 'italic';
+      clickNote.style.marginTop = '15px';
+      clickNote.style.color = '#aaa';
+      clickNote.textContent = 'Click on any earthquake to center the view on its location';
+      eventsList.appendChild(clickNote);
+    }
+    
+    contentContainer.appendChild(eventsList);
+  }
+  
+  // Create statistics view
+  function showStats() {
+    contentContainer.innerHTML = '';
+    
+    const statsHeader = document.createElement('div');
+    statsHeader.innerHTML = '<h4 style="margin: 10px 0;">Earthquake Statistics</h4>';
+    contentContainer.appendChild(statsHeader);
+    
+    const statsContainer = document.createElement('div');
+    
+    // Calculate basic statistics with our enhanced categories
+    const totalQuakes = earthquakeData.length;
+    const magnitudeCounts = {
+      severe: earthquakeData.filter(q => q.magnitude >= 8.0).length,
+      major: earthquakeData.filter(q => q.magnitude >= 7.0 && q.magnitude < 8.0).length,
+      strongPlus: earthquakeData.filter(q => q.magnitude >= 6.5 && q.magnitude < 7.0).length,
+      strong: earthquakeData.filter(q => q.magnitude >= 6.0 && q.magnitude < 6.5).length,
+      moderatePlus: earthquakeData.filter(q => q.magnitude >= 5.5 && q.magnitude < 6.0).length,
+      moderate: earthquakeData.filter(q => q.magnitude >= 5.0 && q.magnitude < 5.5).length,
+      lightPlus: earthquakeData.filter(q => q.magnitude >= 4.5 && q.magnitude < 5.0).length,
+      light: earthquakeData.filter(q => q.magnitude < 4.5).length
+    };
+    
+    // Find maximum magnitude earthquake
+    const maxMagQuake = [...earthquakeData].sort((a, b) => b.magnitude - a.magnitude)[0];
+    
+    statsContainer.innerHTML = `
+      <div style="background-color:rgba(255,255,255,0.1);border-radius:8px;padding:15px;margin:10px 0;">
+        <div style="margin-bottom:10px;font-size:14px;"><strong>Total Earthquakes:</strong> ${totalQuakes}</div>
+        
+        <h5 style="margin:15px 0 10px 0;font-size:14px;color:#aaa;">Major Events</h5>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Severe (8.0+):</span>
+            <span>${magnitudeCounts.severe}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.severe / totalQuakes) * 100}%;height:100%;background-color:#FF0000;"></div>
+          </div>
+        </div>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Major (7.0-7.9):</span>
+            <span>${magnitudeCounts.major}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.major / totalQuakes) * 100}%;height:100%;background-color:#FF3300;"></div>
+          </div>
+        </div>
+        
+        <h5 style="margin:15px 0 10px 0;font-size:14px;color:#aaa;">Strong Events</h5>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Strong+ (6.5-6.9):</span>
+            <span>${magnitudeCounts.strongPlus}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.strongPlus / totalQuakes) * 100}%;height:100%;background-color:#FF6600;"></div>
+          </div>
+        </div>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Strong (6.0-6.4):</span>
+            <span>${magnitudeCounts.strong}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.strong / totalQuakes) * 100}%;height:100%;background-color:#FF9900;"></div>
+          </div>
+        </div>
+        
+        <h5 style="margin:15px 0 10px 0;font-size:14px;color:#aaa;">Moderate Events</h5>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Moderate+ (5.5-5.9):</span>
+            <span>${magnitudeCounts.moderatePlus}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.moderatePlus / totalQuakes) * 100}%;height:100%;background-color:#FFCC00;"></div>
+          </div>
+        </div>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Moderate (5.0-5.4):</span>
+            <span>${magnitudeCounts.moderate}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.moderate / totalQuakes) * 100}%;height:100%;background-color:#FFFF00;"></div>
+          </div>
+        </div>
+        
+        <h5 style="margin:15px 0 10px 0;font-size:14px;color:#aaa;">Light Events</h5>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Light+ (4.5-4.9):</span>
+            <span>${magnitudeCounts.lightPlus}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.lightPlus / totalQuakes) * 100}%;height:100%;background-color:#CCFF00;"></div>
+          </div>
+        </div>
+        
+        <div style="margin:10px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span>Light (<4.5):</span>
+            <span>${magnitudeCounts.light}</span>
+          </div>
+          <div style="height:8px;background-color:#333;border-radius:4px;overflow:hidden;">
+            <div style="width:${(magnitudeCounts.light / totalQuakes) * 100}%;height:100%;background-color:#00FF00;"></div>
+          </div>
+        </div>
+      </div>
+      
+      ${maxMagQuake ? `
+        <div style="margin-top:20px;">
+          <div style="font-size:14px;"><strong>Largest Recent Earthquake:</strong></div>
+          <div style="background-color:rgba(255,0,0,0.2);border-radius:8px;padding:12px;margin-top:8px;border-left:4px solid #FF0000;">
+            <div style="font-weight:bold;">${maxMagQuake.place}</div>
+            <div style="margin-top:5px;font-size:12px;">Magnitude: ${maxMagQuake.magnitude.toFixed(1)}</div>
+            <div style="margin-top:3px;font-size:12px;">Date: ${maxMagQuake.time.toLocaleDateString()}</div>
+          </div>
+        </div>
+      ` : ''}
+    `;
+    
+    contentContainer.appendChild(statsContainer);
+  }
+  
+  // Set up tab functionality
+  recentTab.addEventListener('click', () => {
+    recentTab.style.borderBottom = '2px solid #4a90e2';
+    recentTab.style.color = '#4a90e2';
+    recentTab.style.opacity = '1';
+    statsTab.style.borderBottom = 'none';
+    statsTab.style.color = 'white';
+    statsTab.style.opacity = '0.7';
+    showRecentEvents();
+  });
+  
+  statsTab.addEventListener('click', () => {
+    statsTab.style.borderBottom = '2px solid #4a90e2';
+    statsTab.style.color = '#4a90e2';
+    statsTab.style.opacity = '1';
+    recentTab.style.borderBottom = 'none';
+    recentTab.style.color = 'white';
+    recentTab.style.opacity = '0.7';
+    showStats();
+  });
+  
+  // Show recent events by default
+  showRecentEvents();
+  
+  // Add minimize/expand button
+  const minimizeButton = document.createElement('button');
+  minimizeButton.innerHTML = '−';
+  minimizeButton.title = 'Minimize panel';
+  Object.assign(minimizeButton.style, {
+    position: 'absolute',
+    top: '10px',
+    right: '40px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: 'white',
+    fontSize: '20px',
+    cursor: 'pointer',
+    padding: '0',
+    width: '20px',
+    height: '20px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center'
+  });
+  
+  let minimized = false;
+  const panelContent = [explanation, tabContainer, contentContainer];
+  
+  minimizeButton.addEventListener('click', () => {
+    if (minimized) {
+      // Expand
+      minimizeButton.innerHTML = '−';
+      minimizeButton.title = 'Minimize panel';
+      panel.style.maxHeight = '75vh';
+      panelContent.forEach(el => el.style.display = 'block');
+      minimized = false;
+    } else {
+      // Minimize
+      minimizeButton.innerHTML = '+';
+      minimizeButton.title = 'Expand panel';
+      panel.style.maxHeight = 'auto';
+      panelContent.forEach(el => el.style.display = 'none');
+      minimized = true;
+    }
+  });
+  
+  // Add close button
+  const closeButton = document.createElement('button');
+  closeButton.innerHTML = '&times;';
+  closeButton.title = 'Close panel';
+  Object.assign(closeButton.style, {
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: 'white',
+    fontSize: '20px',
+    cursor: 'pointer',
+    padding: '0',
+    width: '20px',
+    height: '20px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center'
+  });
+  
+  closeButton.addEventListener('click', () => {
+    panel.remove();
+    
+    // Restore Earth's revolution around the Sun when closing the panel
+    isEarthOrbiting = true;
+    
+    // Clear earthquake visualization dots/points
+    Globe.pointsData([]);
+    
+    // Option to restore globe rotation when closing the panel
+    const restoreRotationDiv = document.createElement('div');
+    restoreRotationDiv.style.position = 'absolute';
+    restoreRotationDiv.style.bottom = '30px';
+    restoreRotationDiv.style.right = '30px';
+    restoreRotationDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    restoreRotationDiv.style.color = 'white';
+    restoreRotationDiv.style.padding = '10px 15px';
+    restoreRotationDiv.style.borderRadius = '8px';
+    restoreRotationDiv.style.fontFamily = "'Montserrat', sans-serif";
+    restoreRotationDiv.style.fontSize = '14px';
+    restoreRotationDiv.style.cursor = 'pointer';
+    restoreRotationDiv.style.zIndex = '1000';
+    restoreRotationDiv.style.display = 'flex';
+    restoreRotationDiv.style.alignItems = 'center';
+    restoreRotationDiv.style.gap = '8px';
+    restoreRotationDiv.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
+    restoreRotationDiv.innerHTML = '<span style="font-size:16px;">🌍</span> Restore Normal View';
+    restoreRotationDiv.id = 'restore-globe-rotation';
+    
+    // Add hover effect
+    restoreRotationDiv.addEventListener('mouseover', () => {
+      restoreRotationDiv.style.backgroundColor = 'rgba(74, 144, 226, 0.7)';
+    });
+    
+    restoreRotationDiv.addEventListener('mouseout', () => {
+      restoreRotationDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    });
+    
+    // Restore globe rotation and camera
+    restoreRotationDiv.addEventListener('click', () => {
+      // Restore rotation
+      isGlobeRotating = true;
+      
+      // Restore Earth's revolution around the Sun
+      isEarthOrbiting = true;
+      
+      // Remove earthquake visualization completely (both points and rings)
+      Globe.pointsData([]);
+      Globe.ringsData([]);
+      
+      // Animate camera back to default position
+      const defaultPosition = new Vector3(0, 0, 400);
+      const startPosition = camera.position.clone();
+      const duration = 1.5; // seconds
+      const startTime = Date.now();
+      
+      function animateCamera() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / (duration * 1000), 1);
+        
+        // Ease-in-out function for smooth movement
+        const easeProgress = progress < 0.5
+          ? 2 * progress * progress
+          : -1 + (4 - 2 * progress) * progress;
+        
+        // Update camera position
+        camera.position.lerpVectors(startPosition, defaultPosition, easeProgress);
+        camera.lookAt(0, 0, 0);
+        
+        // Continue animation until complete
+        if (progress < 1) {
+          requestAnimationFrame(animateCamera);
+        } else {
+          restoreRotationDiv.remove();
+        }
+      }
+      
+      // Start the camera animation
+      animateCamera();
+    });
+    
+    document.body.appendChild(restoreRotationDiv);
+  });
+  
+  panel.appendChild(minimizeButton);
+  panel.appendChild(closeButton);
+  document.body.appendChild(panel);
+  
+  // Add fade-in animation
+  panel.style.opacity = '0';
+  panel.style.transform = 'translateY(20px)';
+  panel.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+  
+  setTimeout(() => {
+    panel.style.opacity = '1';
+    panel.style.transform = 'translateY(0)';
+  }, 100);
 }

@@ -34,6 +34,17 @@ export const clearAstronautTools = (globe, globeGroup) => {
     window.missionPlannerIntervals.forEach(clearInterval);
     window.missionPlannerIntervals = [];
   }
+  
+  // Restore original Earth and Moon orbiting states after LRO deactivation
+  if (window.originalEarthOrbitState !== undefined) {
+    window.isEarthOrbiting = window.originalEarthOrbitState;
+    window.originalEarthOrbitState = undefined;
+  }
+  
+  if (window.originalMoonOrbitState !== undefined) {
+    window.isMoonOrbiting = window.originalMoonOrbitState;
+    window.originalMoonOrbitState = undefined;
+  }
 
   // Remove only specific UI elements (preserve verticalButton for astronaut tools)
   const elementsToRemove = [
