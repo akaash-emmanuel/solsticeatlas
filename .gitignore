@@ -26,3 +26,6 @@ _pycache_/
 node_modules/
 # Local Netlify folder
 .netlify
+
+# Build
+dist/

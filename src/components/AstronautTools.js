@@ -1,7 +1,9 @@
 // External library imports
-import { Vector3, MeshBasicMaterial, SphereGeometry, Mesh, LineBasicMaterial, 
-         BufferGeometry, LineLoop, CylinderGeometry, RingGeometry, DoubleSide, 
-         SpriteMaterial, Sprite, CanvasTexture } from "three";
+import {
+  Vector3, MeshBasicMaterial, SphereGeometry, Mesh, LineBasicMaterial,
+  BufferGeometry, LineLoop, CylinderGeometry, RingGeometry, DoubleSide,
+  SpriteMaterial, Sprite, CanvasTexture
+} from "three";
 import * as satellite from 'satellite.js';
 import axios from 'axios';
 
@@ -10,6 +12,13 @@ import { clearAstronautTools, clearAstronautToolsPreservePanel } from './clearAs
 import { showISSTracker } from './ISSTracker.js';
 import { showRadiationMonitor } from './RadiationMonitor.js';
 import { showLunarOrbiterLive } from './LunarOrbiter.js';
+import { showSpaceSituationalAwareness } from './SpaceSituationalAwareness.js';
+import { showEarthObservation } from './EarthObservationPlanner.js';
+import { showMarsWeatherMonitor } from './MarsWeatherMonitor.js';
+import { showJupiterAtmosphericMonitor } from './JupiterAtmosphericMonitor.js';
+import { showSaturnAtmosphericMonitor } from './SaturnAtmosphericMonitor.js';
+import { showVenusAtmosphericMonitor } from './VenusAtmosphericMonitor.js';
+
 
 const NASA_API_KEY = "jmRRPCUwwWyNaMrXJCNz8HDX8q94wPnQfKz0ig5a";
 
@@ -31,41 +40,12 @@ const convertLatLonToXYZ = (lat, lon, radius) => {
 
 /**
  * Set up global process object for axios if needed
- */ 
+ */
 if (typeof window !== 'undefined') {
   window.process = window.process || { env: { NODE_ENV: 'production' } };
 }
 
-/**
- * Diagnostic function to check if axios is properly initialized
- */
-const diagnoseAxios = () => {
-  try {
-    // Check if axios is available
-    if (!axios) {
-      console.error('Axios is not defined');
-      return false;
-    }
-    
-    // Check if axios has the necessary methods
-    if (!axios.get || !axios.post) {
-      console.error('Axios methods are missing');
-      return false;
-    }
-    
-    // Check if process is defined for axios
-    if (typeof process === 'undefined' || !process || !process.env) {
-      console.warn('Process object is not properly defined. Adding polyfill.');
-      window.process = window.process || { env: {} };
-    }
-    
-    console.log('Axios is properly initialized');
-    return true;
-  } catch (error) {
-    console.error('Error diagnosing axios:', error);
-    return false;
-  }
-};
+
 
 // ===== UI HELPER FUNCTIONS =====
 
@@ -78,11 +58,11 @@ const showLoadingIndicator = () => {
   if (existingLoader) {
     existingLoader.remove();
   }
-  
+
   // Create loading indicator
   const loader = document.createElement("div");
   loader.id = "loadingIndicator";
-  
+
   // Style the loading indicator
   Object.assign(loader.style, {
     position: "fixed",
@@ -98,7 +78,7 @@ const showLoadingIndicator = () => {
     animation: "spin 1s linear infinite",
     zIndex: "9999"
   });
-  
+
   // Add keyframes for spinning animation
   if (!document.getElementById("loader-animation")) {
     const styleSheet = document.createElement("style");
@@ -110,9 +90,9 @@ const showLoadingIndicator = () => {
     `;
     document.head.appendChild(styleSheet);
   }
-  
+
   document.body.appendChild(loader);
-  
+
   // Add a semi-transparent overlay
   const overlay = document.createElement("div");
   overlay.id = "loaderOverlay";
@@ -134,7 +114,7 @@ const showLoadingIndicator = () => {
 const hideLoadingIndicator = () => {
   const loader = document.getElementById("loadingIndicator");
   const overlay = document.getElementById("loaderOverlay");
-  
+
   if (loader) loader.remove();
   if (overlay) overlay.remove();
 };
@@ -176,16 +156,16 @@ const createVerticalButton = () => {
     e.stopPropagation();
     verticalButton.remove();
   });
-  
+
   // Create minimize button
   const minimizeButton = createPanelButton("&#8722;", 10, 35); // minus symbol
   let isMinimized = false;
   const originalHeight = verticalButton.style.minHeight;
-  
+
   minimizeButton.addEventListener("click", (e) => {
     e.stopPropagation();
     isMinimized = !isMinimized;
-    
+
     if (isMinimized) {
       verticalButton.style.minHeight = "50px";
       verticalButton.style.maxHeight = "50px";
@@ -198,7 +178,7 @@ const createVerticalButton = () => {
       minimizeButton.innerHTML = "&#8722;"; // minus symbol
     }
   });
-  
+
   // Add buttons to panel
   verticalButton.appendChild(closeButton);
   verticalButton.appendChild(minimizeButton);
@@ -212,7 +192,7 @@ const createVerticalButton = () => {
 function createPanelButton(html, top, right) {
   const button = document.createElement("button");
   button.innerHTML = html;
-  
+
   Object.assign(button.style, {
     position: "absolute",
     top: `${top}px`,
@@ -231,36 +211,36 @@ function createPanelButton(html, top, right) {
     transition: "background-color 0.3s ease",
     zIndex: "1110"
   });
-  
+
   button.addEventListener("mouseover", () => {
     button.style.backgroundColor = "rgba(255, 255, 255, 0.4)";
   });
-  
+
   button.addEventListener("mouseout", () => {
     button.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
   });
-  
+
   return button;
 }
 
 /**
  * Main entry point for astronaut tools menu
  */
-const showAstronautToolsMenu = (scene, globe, globeGroup, camera) => {
+const showAstronautToolsMenu = (scene, globe, globeGroup, camera, planets = {}) => {
   // Initial setup
-  diagnoseAxios();
+  // Initial setup
   clearAstronautTools(globe, globeGroup);
   clearDebrisAndOrbits(globeGroup);
   createVerticalButton();
-  
+
   // Create menu container
   const astronautToolsMenu = createAstronautToolsMenu();
-  
+
   // Add title with close button
   addMenuTitle(astronautToolsMenu, globe, globeGroup);
-  
+
   // Add tool buttons
-  addToolButtons(astronautToolsMenu, scene, globe, globeGroup, camera);
+  addToolButtons(astronautToolsMenu, scene, globe, globeGroup, camera, planets);
 };
 
 /**
@@ -269,7 +249,7 @@ const showAstronautToolsMenu = (scene, globe, globeGroup, camera) => {
 function createAstronautToolsMenu() {
   const menu = document.createElement("div");
   menu.id = "astronautToolsMenu";
-  
+
   Object.assign(menu.style, {
     position: "absolute",
     top: "50%",
@@ -285,7 +265,7 @@ function createAstronautToolsMenu() {
     maxHeight: "70vh",
     overflowY: "auto"
   });
-  
+
   document.body.appendChild(menu);
   return menu;
 }
@@ -302,10 +282,10 @@ function addMenuTitle(menu, globe, globeGroup) {
   title.style.display = "flex";
   title.style.justifyContent = "space-between";
   title.style.alignItems = "center";
-  
+
   const closeButton = document.createElement("button");
   closeButton.innerHTML = "&times;";
-  
+
   Object.assign(closeButton.style, {
     width: "20px",
     height: "20px",
@@ -320,35 +300,35 @@ function addMenuTitle(menu, globe, globeGroup) {
     justifyContent: "center",
     transition: "background-color 0.3s ease"
   });
-  
+
   // Add hover effects
   closeButton.addEventListener("mouseover", () => {
     closeButton.style.backgroundColor = "rgba(255, 255, 255, 0.4)";
   });
-  
+
   closeButton.addEventListener("mouseout", () => {
     closeButton.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
   });
-  
+
   // Add close behavior
   closeButton.addEventListener("click", (e) => {
     e.stopPropagation();
-    
+
     // Clean up
     if (window.currentToolCleanup && typeof window.currentToolCleanup === 'function') {
       window.currentToolCleanup();
     }
     clearAstronautTools(globe, globeGroup);
-    
+
     // Remove UI elements
     menu.remove();
     const verticalButton = document.getElementById("verticalButton");
     if (verticalButton) verticalButton.remove();
   });
-  
+
   const titleText = document.createElement("span");
   titleText.innerText = "Astronaut Tools";
-  
+
   title.appendChild(titleText);
   title.appendChild(closeButton);
   menu.appendChild(title);
@@ -357,32 +337,74 @@ function addMenuTitle(menu, globe, globeGroup) {
 /**
  * Add tool buttons to the menu
  */
-function addToolButtons(menu, scene, globe, globeGroup, camera) {
+function addToolButtons(menu, scene, globe, globeGroup, camera, planets = {}) {
   // Available tools
   const tools = [
+    {
+      name: "Space Situational Awareness",
+      description: "Debris tracking and threat assessment",
+      function: () => showSpaceSituationalAwareness(scene, globe, globeGroup, camera)
+    },
+    {
+      name: "Earth Observation",
+      description: "Natural event tracking (EONET data)",
+      function: () => showEarthObservation(scene, globe, globeGroup, camera)
+    },
+    {
+      name: "Mars Weather Monitor",
+      description: "Atmospheric conditions and dust storms",
+      function: () => {
+        if (planets.mars) showMarsWeatherMonitor(scene, globe, globeGroup, camera, planets.mars);
+        else alert("Mars not initialized or not in focus");
+      }
+    },
+    {
+      name: "Jupiter Atmospheric Probe",
+      description: "Great Red Spot and storm analysis",
+      function: () => {
+        if (planets.jupiter) showJupiterAtmosphericMonitor(scene, globe, globeGroup, camera, planets.jupiter);
+        else alert("Jupiter not initialized or not in focus");
+      }
+    },
+    {
+      name: "Saturn Ring Analyzer",
+      description: "Ring density and storm monitoring",
+      function: () => {
+        if (planets.saturn) showSaturnAtmosphericMonitor(scene, globe, globeGroup, camera, planets.saturn);
+        else alert("Saturn not initialized or not in focus");
+      }
+    },
+    {
+      name: "Venus Atmospheric Probe",
+      description: "Surface pressure and acid cloud analysis",
+      function: () => {
+        if (planets.venus) showVenusAtmosphericMonitor(scene, globe, globeGroup, camera, planets.venus);
+        else alert("Venus not initialized or not in focus");
+      }
+    },
     {
       name: "Lunar Reconnaissance Orbiter",
       description: "Visualize LRO orbiting the Moon with real NASA data",
       function: () => {
         console.log("LRO button clicked");
-        
+
         // Store original orbiting states to restore later
         if (typeof window.isEarthOrbiting !== 'undefined' && typeof window.isMoonOrbiting !== 'undefined') {
           // Save the original states
           window.originalEarthOrbitState = window.isEarthOrbiting;
           window.originalMoonOrbitState = window.isMoonOrbiting;
-          
+
           // Pause both Earth and Moon orbiting when focusing on the LRO
           window.isEarthOrbiting = false;
           window.isMoonOrbiting = false;
         }
-        
+
         // First ensure we focus on the Moon, then show the LRO
         if (typeof window.switchCameraFocus === 'function') {
           // Use a longer duration (3.0 seconds) for a smoother transition
           // Allow user to freely navigate around the Moon with mouse controls
           window.switchCameraFocus('moon', 3.0);
-          
+
           // Add feedback to show something is happening
           const loadingText = document.createElement('div');
           loadingText.id = 'lro-transition';
@@ -398,13 +420,13 @@ function addToolButtons(menu, scene, globe, globeGroup, camera) {
           loadingText.style.zIndex = '2000';
           loadingText.textContent = 'Moving camera to the Moon...';
           document.body.appendChild(loadingText);
-          
+
           // Longer delay to ensure camera transition completes
           setTimeout(() => {
             // Remove the transition message
             const transitionMsg = document.getElementById('lro-transition');
             if (transitionMsg) document.body.removeChild(transitionMsg);
-            
+
             // Initialize LRO visualization
             showLunarOrbiterLive(scene, globe, globeGroup, camera);
           }, 2600);
@@ -425,16 +447,16 @@ function addToolButtons(menu, scene, globe, globeGroup, camera) {
       function: () => showRadiationMonitor(scene, globe, globeGroup, camera)
     }
   ];
-  
+
   // Create button for each tool
   tools.forEach(tool => {
     const button = createToolButton(tool);
-    
+
     // Add click behavior
     button.addEventListener("click", () => {
       activateTool(tool, globe, globeGroup);
     });
-    
+
     menu.appendChild(button);
   });
 }
@@ -444,7 +466,7 @@ function addToolButtons(menu, scene, globe, globeGroup, camera) {
  */
 function createToolButton(tool) {
   const button = document.createElement("div");
-  
+
   Object.assign(button.style, {
     backgroundColor: tool.highlight ? "#2c82dc" : "#0c529c",
     color: "#ffffff",
@@ -457,7 +479,7 @@ function createToolButton(tool) {
     border: tool.highlight ? "2px solid #00ffff" : "none",
     boxShadow: tool.highlight ? "0 0 12px rgba(0, 255, 255, 0.5)" : "none"
   });
-  
+
   // Add title
   const buttonTitle = document.createElement("div");
   buttonTitle.innerText = tool.name;
@@ -465,23 +487,23 @@ function createToolButton(tool) {
   buttonTitle.style.marginBottom = "5px";
   buttonTitle.style.color = tool.highlight ? "#00ffff" : "#ffffff";
   button.appendChild(buttonTitle);
-  
+
   // Add description
   const buttonDescription = document.createElement("div");
   buttonDescription.innerText = tool.description;
   buttonDescription.style.fontSize = "12px";
   buttonDescription.style.opacity = "0.8";
   button.appendChild(buttonDescription);
-  
+
   // Add hover effects
   button.addEventListener("mouseover", () => {
     button.style.backgroundColor = "#1a6bc2";
   });
-  
+
   button.addEventListener("mouseout", () => {
     button.style.backgroundColor = tool.highlight ? "#2c82dc" : "#0c529c";
   });
-  
+
   return button;
 }
 
@@ -493,11 +515,11 @@ function activateTool(tool, globe, globeGroup) {
   if (window.currentToolCleanup && typeof window.currentToolCleanup === 'function') {
     window.currentToolCleanup();
   }
-  
+
   // Prepare for new tool
   clearAstronautToolsPreservePanel(globe, globeGroup);
   showLoadingIndicator();
-  
+
   // Track current active tool
   window.activeAstronautTool = tool.name;
 
@@ -505,7 +527,7 @@ function activateTool(tool, globe, globeGroup) {
   setTimeout(() => {
     try {
       const cleanupFunction = tool.function();
-      
+
       // Store cleanup function for later use
       if (cleanupFunction && typeof cleanupFunction === 'function') {
         window.currentToolCleanup = cleanupFunction;
@@ -541,7 +563,6 @@ export {
   clearAstronautTools,       // Clean up all astronaut tool visualizations
   clearAstronautToolsPreservePanel, // Clean up visualizations but keep panel
   createVerticalButton,      // Create info panel
-  diagnoseAxios,             // Utility to check axios configuration
   showLoadingIndicator,      // UI helper for loading state
   hideLoadingIndicator       // UI helper to hide loading state
 };

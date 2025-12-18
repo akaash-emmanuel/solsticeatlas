@@ -2,6 +2,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 import NodePolyfillPlugin from 'node-polyfill-webpack-plugin';
+import dotenv from 'dotenv';
+
+// Load env vars
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,8 +85,9 @@ export default {
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
       'process.env.NODE_DEBUG': JSON.stringify(process.env.NODE_DEBUG || ''),
+      'process.env.OPENAI_KEY': JSON.stringify(process.env.OPENAI_API_KEY),
       'global': 'window'
     }),
   ],
-  mode: 'development',
+  mode: 'production',
 };
